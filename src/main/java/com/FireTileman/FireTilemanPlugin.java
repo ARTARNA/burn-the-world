@@ -11,6 +11,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
 import net.runelite.api.ObjectID;
+import net.runelite.api.Model;
 import net.runelite.api.RuneLiteObject;
 import net.runelite.api.Tile;
 import net.runelite.api.coords.LocalPoint;
@@ -68,7 +69,11 @@ public class FireTilemanPlugin extends Plugin
 		overlayManager.add(overlay);
 		
 		loadMarkedTiles();
-		restorePersistentFires();
+		
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			clientThread.invokeLater(this::restorePersistentFires);
+		}
 		
 		log.debug("Fire Tileman started!");
 	}
@@ -264,7 +269,7 @@ public class FireTilemanPlugin extends Plugin
 
 		RuneLiteObject fireObject = client.createRuneLiteObject();
 		
-		net.runelite.api.Model fireModel = client.loadModel(FIRE_MODEL_ID);
+		Model fireModel = client.loadModel(FIRE_MODEL_ID);
 		if (fireModel == null)
 		{
 			log.warn("Could not load model {}", FIRE_MODEL_ID);
@@ -341,7 +346,7 @@ public class FireTilemanPlugin extends Plugin
 			return;
 		}
 		
-		for (WorldPoint markedTile : new HashSet<>(markedTiles))
+		for (WorldPoint markedTile : markedTiles)
 		{
 			LocalPoint localPoint = LocalPoint.fromWorld(client, markedTile);
 			if (localPoint != null)
