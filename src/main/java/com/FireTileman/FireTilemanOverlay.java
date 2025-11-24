@@ -3,6 +3,7 @@ package com.FireTileman;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
+import java.awt.Polygon;
 import java.util.Set;
 import javax.inject.Inject;
 import net.runelite.api.Client;
@@ -50,7 +51,7 @@ public class FireTilemanOverlay extends Overlay
 
 	private void drawMarkedTile(Graphics2D graphics, LocalPoint localPoint)
 	{
-		java.awt.Polygon tilePoly = Perspective.getCanvasTilePoly(client, localPoint);
+		Polygon tilePoly = Perspective.getCanvasTilePoly(client, localPoint);
 		if (tilePoly == null)
 		{
 			return;

@@ -2,15 +2,15 @@ package com.FireTileman;
 
 import com.google.inject.Provides;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
-import net.runelite.api.ObjectComposition;
 import net.runelite.api.ObjectID;
-import net.runelite.api.Renderable;
 import net.runelite.api.RuneLiteObject;
 import net.runelite.api.Tile;
 import net.runelite.api.coords.LocalPoint;
@@ -52,7 +52,7 @@ public class FireTilemanPlugin extends Plugin
 	private FireTilemanOverlay overlay;
 
 	private final Set<WorldPoint> markedTiles = new HashSet<>();
-	private final java.util.Map<WorldPoint, RuneLiteObject> persistentFires = new java.util.HashMap<>();
+	private final Map<WorldPoint, RuneLiteObject> persistentFires = new HashMap<>();
 	private static final int FIRE_MODEL_ID = 2260;
 
 	private boolean isFireObject(int objectId)
@@ -75,8 +75,6 @@ public class FireTilemanPlugin extends Plugin
 	protected void shutDown() throws Exception
 	{
 		overlayManager.remove(overlay);
-		
-		saveMarkedTiles();
 		
 		for (RuneLiteObject fireObject : persistentFires.values())
 		{
@@ -201,6 +199,25 @@ public class FireTilemanPlugin extends Plugin
 				}
 			});
 		}
+		else if (event.getKey().equals("resetTiles"))
+		{
+			clientThread.invokeLater(() ->
+			{
+				markedTiles.clear();
+				saveMarkedTiles();
+				
+				for (RuneLiteObject fireObject : persistentFires.values())
+				{
+					if (fireObject != null)
+					{
+						fireObject.setActive(false);
+					}
+				}
+				persistentFires.clear();
+				
+				log.info("All marked tiles have been reset");
+			});
+		}
 	}
 
 	private void createPersistentFire(WorldPoint worldPoint)
@@ -215,88 +232,36 @@ public class FireTilemanPlugin extends Plugin
 			return;
 		}
 
-		try
+		RuneLiteObject existingFire = persistentFires.get(worldPoint);
+		if (existingFire != null)
 		{
-			RuneLiteObject existingFire = persistentFires.get(worldPoint);
-			if (existingFire != null)
-			{
-				existingFire.setActive(false);
-			}
-
-			RuneLiteObject fireObject = client.createRuneLiteObject();
-			
-			net.runelite.api.Model fireModel = null;
-			
-			try
-			{
-				fireModel = client.loadModel(FIRE_MODEL_ID);
-			}
-			catch (Exception e)
-			{
-				log.warn("Could not load model {}: {}", FIRE_MODEL_ID, e.getMessage());
-			}
-			
-			if (fireModel == null)
-			{
-				ObjectComposition fireComposition = client.getObjectDefinition(FIRE_MODEL_ID);
-				if (fireComposition != null)
-				{
-					try
-					{
-						java.lang.reflect.Method getRenderable = fireComposition.getClass().getMethod("getRenderable");
-						Renderable fireRenderable = (Renderable) getRenderable.invoke(fireComposition);
-						if (fireRenderable instanceof net.runelite.api.Model)
-						{
-							fireModel = (net.runelite.api.Model) fireRenderable;
-						}
-						else if (fireRenderable != null)
-						{
-							try
-							{
-								java.lang.reflect.Method getModel = fireRenderable.getClass().getMethod("getModel");
-								Object modelObj = getModel.invoke(fireRenderable);
-								if (modelObj instanceof net.runelite.api.Model)
-								{
-									fireModel = (net.runelite.api.Model) modelObj;
-								}
-							}
-							catch (Exception e)
-							{
-							}
-						}
-					}
-					catch (Exception e)
-					{
-					}
-				}
-			}
-			
-			if (fireModel == null)
-			{
-				log.warn("Could not get Model for fire ID {}", FIRE_MODEL_ID);
-				return;
-			}
-
-			fireObject.setModel(fireModel);
-
-			LocalPoint localPoint = LocalPoint.fromWorld(client, worldPoint);
-			if (localPoint == null)
-			{
-				log.warn("Could not convert WorldPoint {} to LocalPoint", worldPoint);
-				return;
-			}
-
-			fireObject.setLocation(localPoint, client.getPlane());
-			fireObject.setActive(true);
-
-			persistentFires.put(worldPoint, fireObject);
-			
-			log.debug("Created persistent fire at {}", worldPoint);
+			existingFire.setActive(false);
 		}
-		catch (Exception e)
+
+		RuneLiteObject fireObject = client.createRuneLiteObject();
+		
+		net.runelite.api.Model fireModel = client.loadModel(FIRE_MODEL_ID);
+		if (fireModel == null)
 		{
-			log.error("Error creating persistent fire at {}: {}", worldPoint, e.getMessage(), e);
+			log.warn("Could not load model {}", FIRE_MODEL_ID);
+			return;
 		}
+
+		fireObject.setModel(fireModel);
+
+		LocalPoint localPoint = LocalPoint.fromWorld(client, worldPoint);
+		if (localPoint == null)
+		{
+			log.warn("Could not convert WorldPoint {} to LocalPoint", worldPoint);
+			return;
+		}
+
+		fireObject.setLocation(localPoint, client.getPlane());
+		fireObject.setActive(true);
+
+		persistentFires.put(worldPoint, fireObject);
+		
+		log.debug("Created persistent fire at {}", worldPoint);
 	}
 
 	private void saveMarkedTiles()
@@ -371,11 +336,6 @@ public class FireTilemanPlugin extends Plugin
 	Set<WorldPoint> getMarkedTiles()
 	{
 		return markedTiles;
-	}
-
-	boolean isFireObjectInstance(int objectId)
-	{
-		return isFireObject(objectId);
 	}
 
 	private boolean hasFireAtLocation(WorldPoint worldPoint)
