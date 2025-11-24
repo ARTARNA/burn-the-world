@@ -32,9 +32,6 @@ public interface FireTilemanConfig extends Config
 		name = "Reset all tiles",
 		description = "Clear all marked tiles and start fresh"
 	)
-	default boolean resetTiles()
-	{
-		return false;
-	}
+	void resetTiles();
 }
 

@@ -18,6 +18,7 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameObjectDespawned;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -54,10 +55,11 @@ public class FireTilemanPlugin extends Plugin
 	private final Set<WorldPoint> markedTiles = new HashSet<>();
 	private final Map<WorldPoint, RuneLiteObject> persistentFires = new HashMap<>();
 	private static final int FIRE_MODEL_ID = 2260;
+	private int lastRegionId = -1;
 
 	private boolean isFireObject(int objectId)
 	{
-		return (objectId >= 26185 && objectId <= 26500) || objectId == ObjectID.FIRE;
+		return objectId == ObjectID.FIRE || objectId == 26185 || objectId == 26186;
 	}
 
 	@Override
@@ -163,10 +165,32 @@ public class FireTilemanPlugin extends Plugin
 				}
 			}
 			persistentFires.clear();
+			lastRegionId = -1;
 		}
 		else if (event.getGameState() == GameState.LOGGED_IN)
 		{
 			restorePersistentFires();
+		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		if (client.getGameState() != GameState.LOGGED_IN)
+		{
+			return;
+		}
+
+		if (client.getLocalPlayer() == null)
+		{
+			return;
+		}
+
+		int currentRegionId = client.getLocalPlayer().getWorldLocation().getRegionID();
+		if (currentRegionId != lastRegionId)
+		{
+			lastRegionId = currentRegionId;
+			clientThread.invokeLater(this::restorePersistentFires);
 		}
 	}
 
